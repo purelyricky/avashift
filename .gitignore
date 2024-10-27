@@ -34,3 +34,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Ignore environment variables
+.env
+
+# Other ignored files
+node_modules/
+dist/
