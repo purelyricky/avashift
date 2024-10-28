@@ -26,7 +26,7 @@ const ClientDashboard = async () => {
           <HeaderBox 
             type="greeting"
             title="Welcome,"
-            user={`${user.firstName} ${user.lastName}`}
+            user={`${user.firstName}`}
             subtext="Access and manage your Clients, Projects, and Shifts."
           />
 

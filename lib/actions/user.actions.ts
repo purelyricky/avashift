@@ -259,3 +259,174 @@ export const logoutAccount = async () => {
     return null;
   }
 };
+
+// ========================================
+// Calculation Actions
+// ========================================
+
+export async function getStudentProjectStats(userId: string): Promise<StudentProjectStats> {
+    const { database } = await createAdminClient();
+    
+    // Use UTC dates to ensure consistent timezone handling
+    const currentDate = new Date();
+    const firstDayOfMonth = new Date(Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), 1));
+  
+    try {
+      // Get all projects the student is a member of
+      const projectMembers = await database.listDocuments(
+        process.env.APPWRITE_DATABASE_ID!,
+        process.env.APPWRITE_PROJECT_MEMBERS_COLLECTION_ID!,
+        [
+          Query.equal('userId', [userId]),
+          Query.equal('userRole', ['student']),
+          Query.equal('status', ['active'])
+        ]
+      );
+  
+      // Early return for students with no projects
+      if (projectMembers.documents.length === 0) {
+        return parseStringify({
+          totalProjects: 0,
+          activeProjects: 0,
+          projectEarnings: [],
+          totalMonthlyEarnings: 0
+        });
+      }
+  
+      // Extract unique project IDs using Array.from and filter
+      const projectIds = Array.from(
+        new Set(
+          projectMembers.documents
+            .map(pm => pm.projectId)
+            .filter(id => id !== undefined)
+        )
+      );
+      
+      // Get project details
+      const projects = await database.listDocuments(
+        process.env.APPWRITE_DATABASE_ID!,
+        process.env.APPWRITE_PROJECTS_COLLECTION_ID!,
+        [Query.equal('projectId', projectIds)]
+      );
+  
+      // Get earnings for current month
+      const earnings = await database.listDocuments(
+        process.env.APPWRITE_DATABASE_ID!,
+        process.env.APPWRITE_EARNINGS_COLLECTION_ID!,
+        [
+          Query.equal('studentId', [userId]),
+          Query.greaterThanEqual('createdAt', [firstDayOfMonth.toISOString()]),
+          Query.lessThanEqual('createdAt', [currentDate.toISOString()]),
+          Query.equal('status', ['verified', 'paid']) // Only count verified or paid earnings
+        ]
+      );
+  
+      // Fetch shifts data only if there are earnings
+      const shiftIds = earnings.documents.map(e => e.shiftId).filter(id => id !== undefined);
+      let shifts: Shift[] = [];
+      
+      if (shiftIds.length > 0) {
+        const shiftsResponse = await database.listDocuments(
+          process.env.APPWRITE_DATABASE_ID!,
+          process.env.APPWRITE_SHIFTS_COLLECTION_ID!,
+          [Query.equal('shiftId', shiftIds)]
+        );
+        shifts = shiftsResponse.documents as unknown as Shift[];
+      }
+  
+      // Calculate earnings per project with error handling
+      const projectEarnings: ProjectEarning[] = projects.documents.map((project, index) => {
+        try {
+          const projectEarnings = earnings.documents
+            .filter(earning => {
+              const relatedShift = shifts.find(s => s.shiftId === earning.shiftId);
+              return relatedShift && relatedShift.projectId === project.projectId;
+            })
+            .reduce((sum, earning) => {
+              // Ensure we're dealing with valid numbers
+              const amount = Number(earning.totalAmount) || 0;
+              return sum + amount;
+            }, 0);
+  
+          return {
+            projectId: project.projectId,
+            projectName: project.name,
+            totalEarnings: Math.round(projectEarnings * 100) / 100, // Round to 2 decimal places
+            color: [`#0747b6`, `#2265d8`, `#2f91fa`][index % 3]
+          };
+        } catch (error) {
+          console.error(`Error calculating earnings for project ${project.projectId}:`, error);
+          return {
+            projectId: project.projectId,
+            projectName: project.name,
+            totalEarnings: 0,
+            color: [`#0747b6`, `#2265d8`, `#2f91fa`][index % 3]
+          };
+        }
+      });
+  
+      const totalMonthlyEarnings = projectEarnings.reduce((sum, p) => sum + p.totalEarnings, 0);
+  
+      return parseStringify({
+        totalProjects: projects.documents.length,
+        activeProjects: projects.documents.filter(p => p.status === 'active').length,
+        projectEarnings: projectEarnings.filter(p => p.totalEarnings > 0),
+        totalMonthlyEarnings: Math.round(totalMonthlyEarnings * 100) / 100 // Round to 2 decimal places
+      });
+  
+    } catch (error) {
+      console.error('Error calculating student project stats:', error);
+      return parseStringify({
+        totalProjects: 0,
+        activeProjects: 0,
+        projectEarnings: [],
+        totalMonthlyEarnings: 0
+      });
+    }
+}
+
+// Helper function with improved date handling
+export async function calculateTimeAndEarnings(
+    scheduledStart: string,
+    scheduledEnd: string,
+    actualStart: string | null,
+    actualEnd: string | null
+): Promise<TimeCalculation> {
+    if (!actualStart || !actualEnd) {
+      return { trackedHours: 0, lostHours: 0 };
+    }
+
+    try {
+        // Convert all times to minutes since midnight with timezone handling
+        const getMinutes = (timeStr: string) => {
+            const date = new Date(timeStr);
+            if (isNaN(date.getTime())) {
+                throw new Error('Invalid date string');
+            }
+            return date.getHours() * 60 + date.getMinutes();
+        };
+
+        const schedStart = getMinutes(scheduledStart);
+        const schedEnd = getMinutes(scheduledEnd);
+        const actStart = getMinutes(actualStart);
+        const actEnd = getMinutes(actualEnd);
+
+        // Calculate lost hours with validation
+        const lostStart = Math.max(0, (actStart - schedStart)) / 60;
+        const lostEnd = Math.max(0, (schedEnd - actEnd)) / 60;
+        const totalLost = Math.round((lostStart + lostEnd) * 100) / 100;
+
+        // Calculate tracked hours with validation
+        const trackedStart = Math.max(schedStart, actStart);
+        const trackedEnd = Math.min(schedEnd, actEnd);
+        const trackedHours = Math.max(0, Math.round((trackedEnd - trackedStart) / 60 * 100) / 100);
+
+        return {
+            trackedHours,
+            lostHours: totalLost
+        };
+    } catch (error) {
+        console.error('Error calculating time and earnings:', error);
+        return { trackedHours: 0, lostHours: 0 };
+    }
+}

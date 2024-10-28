@@ -1,4 +1,4 @@
-import AnimatedCounter from './AnimatedCounter';
+import AnimatedCounter from './AnimatedCounterStudent';
 import DoughnutChartAdmin from './DoughnutChartAdmin';
 
 const TotalBalanceBoxAdmin = ({

@@ -402,3 +402,131 @@ declare interface getBankProps {
 declare interface getBankByAccountIdProps {
   accountId: string;
 }
+
+// ========================================
+// CALCULATION PROPS INTERFACES
+// ========================================
+
+
+// Student Project Stats
+declare type StudentProjectStats = {
+  totalProjects: number;
+  activeProjects: number;
+  projectEarnings: ProjectEarning[];
+  totalMonthlyEarnings: number;
+}
+
+declare type ProjectEarning = {
+  projectId: string;
+  projectName: string;
+  totalEarnings: number;
+  color?: string; // For chart display
+}
+
+// Time Calculation Types
+declare type TimeCalculation = {
+  trackedHours: number;
+  lostHours: number;
+}
+
+// Update existing interface
+declare interface TotalBalanceBoxStudentProps {
+  projectStats: StudentProjectStats;
+}
+
+declare interface DoughnutChartStudentProps {
+  projectEarnings?: ProjectEarning[];
+}
+
+declare interface AnimatedCounterProps {
+  amount: number;
+  currency: 'HUF' | 'USD';
+}
+
+
+declare type Shift = {
+  shiftId: string;
+  projectId: string;
+  shiftLeaderId: string;
+  gatemanId: string;
+  date: string;
+  dayOfWeek: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+  timeType: 'day' | 'night';
+  startTime: string;
+  stopTime: string;
+  requiredStudents: number;
+  assignedCount: number;
+  shiftType: 'normal' | 'filler';
+  status: 'draft' | 'published' | 'inProgress' | 'completed' | 'cancelled';
+  createdBy: string;
+  createdByRole: 'admin' | 'client';
+  createdAt: string;
+  updatedAt: string;
+}
+
+declare type ProjectMember = {
+  memberId: string;
+  projectId: string;
+  userId: string;
+  userRole: UserRole;
+  membershipType: 'owner' | 'student' | 'shiftLeader' | 'client' | 'manager' | 'member' | 'observer';
+  addedBy: string;
+  addedByRole: 'admin' | 'client';
+  status: 'active' | 'inactive';
+  createdAt: string;
+  updatedAt: string;
+}
+
+declare type Project = {
+  projectId: string;
+  name: string;
+  description: string | null;
+  status: 'active' | 'completed' | 'suspended';
+  ownerId: string;
+  ownerRole: 'admin' | 'client';
+  createdAt: string;
+  updatedAt: string;
+}
+
+declare type Earning = {
+  earningId: string;
+  studentId: string;
+  shiftId: string;
+  attendanceId: string;
+  appliedRate: number;
+  rateType: 'weekdayDay' | 'weekdayNight' | 'saturdayDay' | 'saturdayNight' | 'sundayDay' | 'sundayNight';
+  trackedHours: number;
+  lostHours: number;
+  totalAmount: number;
+  status: 'calculated' | 'verified' | 'paid';
+  calculatedBy: string;
+  verifiedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+declare type StudentProjectStats = {
+  totalProjects: number;
+  activeProjects: number;
+  projectEarnings: ProjectEarning[];
+  totalMonthlyEarnings: number;
+}
+
+declare interface TotalBalanceBoxStudentProps {
+  projectStats: StudentProjectStats;
+}
+
+declare interface DoughnutChartStudentProps {
+  projects: ProjectEarning[];
+}
+
+declare interface AnimatedCounterStudentProps {
+  amount: number;
+}
+
+declare type ProjectEarning = {
+  projectId: string;
+  projectName: string;
+  totalEarnings: number;
+  color?: string;
+}

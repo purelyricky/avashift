@@ -1,4 +1,4 @@
-import AnimatedCounter from './AnimatedCounter';
+import AnimatedCounter from './AnimatedCounterStudent';
 import DoughnutChartClient from './DoughnutChartClient';
 
 const TotalBalanceBoxClient = ({

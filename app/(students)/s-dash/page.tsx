@@ -1,22 +1,23 @@
+// page.tsx
 import HeaderBox from '@/components/HeaderBox'
 import TotalBalanceBoxStudent from '@/components/TotalBalanceBoxStudent';
-import { getLoggedInUser } from '@/lib/actions/user.actions';
+import { getLoggedInUser, getStudentProjectStats } from '@/lib/actions/user.actions';
 import { redirect } from 'next/navigation';
 
 const StudentDashboard = async () => {
   const response = await getLoggedInUser();
   
-  // Handle authentication and authorization
   if (!response || response.status === 'error' || !response.data) {
     redirect('/sign-in');
   }
 
   const user = response.data;
   
-  // Ensure user is an admin
   if (user.role !== 'student') {
-    redirect('/'); // or to appropriate error page
+    redirect('/');
   }
+
+  const projectStats = await getStudentProjectStats(user.userId);
 
   return (
     <section className="home">
@@ -25,17 +26,12 @@ const StudentDashboard = async () => {
           <HeaderBox 
             type="greeting"
             title="Welcome,"
-            user={`${user.firstName}`}
-            subtext="Access and manage your Clients, Projects, and Shifts."
+            user={user.firstName}
+            subtext="Manage your shifts and track your earnings easily."
           />
 
-          <TotalBalanceBoxStudent 
-            accounts={[]}
-            totalBanks={1}
-            totalCurrentBalance={1250.35}
-          />
+          <TotalBalanceBoxStudent projectStats={projectStats} />
         </header>
-
       </div>
     </section>
   )

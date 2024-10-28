@@ -27,7 +27,7 @@ const AdminDashboard = async () => {
             type="greeting"
             title="Welcome,"
             user={`${user.firstName}`}
-            subtext="Access and manage your Clients, Projects, and Shifts."
+            subtext="Access and manage your Clients, Projects, and Shifts Easily."
           />
 
           <TotalBalanceBoxAdmin 
@@ -36,8 +36,6 @@ const AdminDashboard = async () => {
             totalCurrentBalance={1250.35}
           />
         </header>
-
-        RECENT TRANSACTIONS
       </div>
 
       <RightSidebarAdmin 

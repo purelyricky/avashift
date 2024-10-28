@@ -2,17 +2,18 @@
 
 import CountUp from 'react-countup';
 
-const AnimatedCounter = ({ amount }: { amount: number }) => {
+const AnimatedCounterStudent = ({ amount }: { amount: number }) => {
   return (
     <div className="w-full">
       <CountUp 
-        decimals={2}
+        decimals={0}
         decimal=","
-        prefix="$"
+        separator=" "
+        suffix=" Ft"
         end={amount} 
       />
     </div>
   )
 }
 
-export default AnimatedCounter
+export default AnimatedCounterStudent
