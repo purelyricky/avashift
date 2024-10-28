@@ -47,7 +47,7 @@ export const sidebarLinksAdmin = [
 export const sidebarLinksClient = [
   {
     imgURL: "/icons/home.svg",
-    route: "/c-reports",
+    route: "/c-dash",
     label: "Dashboard",
   },
   {

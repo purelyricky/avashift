@@ -3,6 +3,7 @@
 import { ID, Query } from "node-appwrite";
 import { createAdminClient, createSessionClient } from "@/lib/actions/appwrite";
 import { cookies } from "next/headers";
+import { parseStringify } from "../utils";
 
 const getCollectionIdForRole = (role: UserRole) => {
   switch (role) {
@@ -138,6 +139,116 @@ export const signIn = async ({ email, password }: LoginUser) => {
     throw error;
   }
 };
+
+//Get Logged In user
+
+export async function getUserInfo({ userId }: getUserInfoProps): Promise<UserResponse> {
+    try {
+      const { database } = await createAdminClient();
+      
+      const collections = [
+        { id: process.env.APPWRITE_ADMINS_COLLECTION_ID!, role: 'admin' as UserRole },
+        { id: process.env.APPWRITE_CLIENTS_COLLECTION_ID!, role: 'client' as UserRole },
+        { id: process.env.APPWRITE_STUDENTS_COLLECTION_ID!, role: 'student' as UserRole },
+        { id: process.env.APPWRITE_SHIFT_LEADERS_COLLECTION_ID!, role: 'shiftLeader' as UserRole },
+        { id: process.env.APPWRITE_GATEMEN_COLLECTION_ID!, role: 'gateman' as UserRole },
+      ];
+  
+      for (const collection of collections) {
+        try {
+          const response = await database.listDocuments(
+            process.env.APPWRITE_DATABASE_ID!,
+            collection.id,
+            [Query.equal('userId', [userId])]
+          );
+  
+          if (response.documents.length > 0) {
+            const doc = response.documents[0];
+            
+            // Create base user data from document
+            const baseUserData: BaseUser = {
+              userId: doc.userId,
+              role: collection.role,
+              firstName: doc.firstName,
+              lastName: doc.lastName,
+              email: doc.email,
+              phone: doc.phone || null,
+              createdAt: doc.$createdAt
+            };
+  
+            let userData: User;
+            
+            if (collection.role === 'student') {
+              userData = {
+                ...baseUserData,
+                role: 'student',
+                dateOfBirth: doc.dateOfBirth || null,
+                availabilityStatus: doc.availabilityStatus || 'inactive',
+                punctualityScore: Number(doc.punctualityScore) || 100,
+                rating: Number(doc.rating) || 5.0
+              } as StudentUser;
+            } else if (collection.role === 'gateman') {
+              userData = {
+                ...baseUserData,
+                role: 'gateman',
+                clientId: doc.clientId || null
+              } as GatemanUser;
+            } else {
+              userData = baseUserData;
+            }
+  
+            return parseStringify({
+              status: 'success',
+              data: userData
+            });
+          }
+        } catch (error) {
+          console.error(`Error checking collection ${collection.id}:`, error);
+          continue;
+        }
+      }
+  
+      return parseStringify({
+        status: 'error',
+        data: null,
+        message: 'User not found'
+      });
+    } catch (error) {
+      console.error('Error in getUserInfo:', error);
+      return parseStringify({
+        status: 'error',
+        data: null,
+        message: 'Internal server error'
+      });
+    }
+  }
+  
+  export async function getLoggedInUser(): Promise<UserResponse> {
+    try {
+      const { account } = await createSessionClient();
+      
+      const currentUser = await account.get();
+      
+      if (!currentUser) {
+        return parseStringify({
+          status: 'error',
+          data: null,
+          message: 'No user session found'
+        });
+      }
+  
+      return await getUserInfo({ userId: currentUser.$id });
+    } catch (error) {
+      console.error('Error in getLoggedInUser:', error);
+      return parseStringify({
+        status: 'error',
+        data: null,
+        message: 'Failed to get logged in user'
+      });
+    }
+  }
+
+//Function for Getting Logged In User End
 
 export const logoutAccount = async () => {
   try {

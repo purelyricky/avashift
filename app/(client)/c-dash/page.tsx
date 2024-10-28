@@ -1,10 +1,10 @@
 import HeaderBox from '@/components/HeaderBox'
-import RightSidebarAdmin from '@/components/RightSidebarAdmin';
-import TotalBalanceBoxAdmin from '@/components/TotalBalanceBoxAdmin';
+import RightSidebarClient from '@/components/RightSidebarClient';
+import TotalBalanceBoxClient from '@/components/TotalBalanceBoxClient';
 import { getLoggedInUser } from '@/lib/actions/user.actions';
 import { redirect } from 'next/navigation';
 
-const AdminDashboard = async () => {
+const ClientDashboard = async () => {
   const response = await getLoggedInUser();
   
   // Handle authentication and authorization
@@ -15,7 +15,7 @@ const AdminDashboard = async () => {
   const user = response.data;
   
   // Ensure user is an admin
-  if (user.role !== 'admin') {
+  if (user.role !== 'client') {
     redirect('/'); // or to appropriate error page
   }
 
@@ -26,11 +26,11 @@ const AdminDashboard = async () => {
           <HeaderBox 
             type="greeting"
             title="Welcome,"
-            user={`${user.firstName}`}
+            user={`${user.firstName} ${user.lastName}`}
             subtext="Access and manage your Clients, Projects, and Shifts."
           />
 
-          <TotalBalanceBoxAdmin 
+          <TotalBalanceBoxClient 
             accounts={[]}
             totalBanks={1}
             totalCurrentBalance={1250.35}
@@ -40,8 +40,8 @@ const AdminDashboard = async () => {
         RECENT TRANSACTIONS
       </div>
 
-      <RightSidebarAdmin 
-        user={user as BaseUser & { role: 'admin' }}
+      <RightSidebarClient 
+        user={user as BaseUser & { role: 'client' }}
        /* transactions={[]}
         banks={[]}*/
       />
@@ -49,4 +49,4 @@ const AdminDashboard = async () => {
   )
 }
 
-export default AdminDashboard
+export default ClientDashboard
