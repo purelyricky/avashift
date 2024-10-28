@@ -1,3 +1,6 @@
+# Student Work Management System - Sequence Diagram
+
+```mermaid
 sequenceDiagram
     participant Admin1 as Admin 1
     participant Admin2 as Admin 2
