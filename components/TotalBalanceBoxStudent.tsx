@@ -2,11 +2,11 @@
 import AnimatedCounterStudent from './AnimatedCounterStudent';
 import DoughnutChartStudent from './DoughnutChartStudent';
 
-const TotalBalanceBoxStudent = ({ projectStats }: TotalBalanceBoxStudentProps) => {
+const TotalBalanceBoxStudent = ({ projectStats }: { projectStats: StudentProjectStats }) => {
   return (
     <section className="total-balance">
       <div className="total-balance-chart">
-        <DoughnutChartStudent projects={projectStats.projectEarnings} />
+        <DoughnutChartStudent projects={projectStats.projectHours} />
       </div>
 
       <div className="flex flex-col gap-6">
@@ -15,11 +15,11 @@ const TotalBalanceBoxStudent = ({ projectStats }: TotalBalanceBoxStudentProps) =
         </h2>
         <div className="flex flex-col gap-2">
           <p className="total-balance-label">
-            Total Monthly Earnings
+            Total Monthly Hours
           </p>
 
           <div className="total-balance-amount flex-center gap-2">
-            <AnimatedCounterStudent amount={projectStats.totalMonthlyEarnings} />
+            <AnimatedCounterStudent hours={projectStats.totalMonthlyHours} />
           </div>
         </div>
       </div>
@@ -27,4 +27,4 @@ const TotalBalanceBoxStudent = ({ projectStats }: TotalBalanceBoxStudentProps) =
   )
 }
 
-export default TotalBalanceBoxStudent
+export default TotalBalanceBoxStudent;

@@ -407,43 +407,6 @@ declare interface getBankByAccountIdProps {
 // CALCULATION PROPS INTERFACES
 // ========================================
 
-
-// Student Project Stats
-declare type StudentProjectStats = {
-  totalProjects: number;
-  activeProjects: number;
-  projectEarnings: ProjectEarning[];
-  totalMonthlyEarnings: number;
-}
-
-declare type ProjectEarning = {
-  projectId: string;
-  projectName: string;
-  totalEarnings: number;
-  color?: string; // For chart display
-}
-
-// Time Calculation Types
-declare type TimeCalculation = {
-  trackedHours: number;
-  lostHours: number;
-}
-
-// Update existing interface
-declare interface TotalBalanceBoxStudentProps {
-  projectStats: StudentProjectStats;
-}
-
-declare interface DoughnutChartStudentProps {
-  projectEarnings?: ProjectEarning[];
-}
-
-declare interface AnimatedCounterProps {
-  amount: number;
-  currency: 'HUF' | 'USD';
-}
-
-
 declare type Shift = {
   shiftId: string;
   projectId: string;
@@ -488,45 +451,35 @@ declare type Project = {
   updatedAt: string;
 }
 
-declare type Earning = {
-  earningId: string;
-  studentId: string;
-  shiftId: string;
-  attendanceId: string;
-  appliedRate: number;
-  rateType: 'weekdayDay' | 'weekdayNight' | 'saturdayDay' | 'saturdayNight' | 'sundayDay' | 'sundayNight';
-  trackedHours: number;
-  lostHours: number;
-  totalAmount: number;
-  status: 'calculated' | 'verified' | 'paid';
-  calculatedBy: string;
-  verifiedBy: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-declare type StudentProjectStats = {
-  totalProjects: number;
-  activeProjects: number;
-  projectEarnings: ProjectEarning[];
-  totalMonthlyEarnings: number;
-}
-
 declare interface TotalBalanceBoxStudentProps {
   projectStats: StudentProjectStats;
 }
 
 declare interface DoughnutChartStudentProps {
-  projects: ProjectEarning[];
+  projects: ProjectTimeStats[];  // Changed from ProjectEarning[]
 }
 
 declare interface AnimatedCounterStudentProps {
-  amount: number;
+  hours: number;  // Changed from amount
 }
 
-declare type ProjectEarning = {
+
+
+//======================================
+//New Declarations 
+//========================================
+
+// types.d.ts updates
+declare type ProjectTimeStats = {
   projectId: string;
   projectName: string;
-  totalEarnings: number;
+  trackedHours: number;
   color?: string;
+}
+
+declare type StudentProjectStats = {
+  totalProjects: number;
+  activeProjects: number;
+  projectHours: ProjectTimeStats[];
+  totalMonthlyHours: number;
 }

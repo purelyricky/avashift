@@ -1,4 +1,3 @@
-// DoughnutChartStudent.tsx
 "use client"
 
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
@@ -6,16 +5,16 @@ import { Doughnut } from "react-chartjs-2";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-const DoughnutChartStudent = ({ projects }: DoughnutChartStudentProps) => {
+const DoughnutChartStudent = ({ projects }: { projects: ProjectTimeStats[] }) => {
   const projectNames = projects.map((p) => p.projectName);
-  const earnings = projects.map((p) => p.totalEarnings);
+  const hours = projects.map((p) => p.trackedHours);
 
   const data = {
     datasets: [
       {
         label: 'Projects',
-        data: earnings,
-        backgroundColor: ['#0747b6', '#2265d8', '#2f91fa'] 
+        data: hours,
+        backgroundColor: ['#0747b6', '#2265d8', '#2f91fa']
       }
     ],
     labels: projectNames
@@ -28,10 +27,19 @@ const DoughnutChartStudent = ({ projects }: DoughnutChartStudentProps) => {
       plugins: {
         legend: {
           display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context: any) {
+              const hours = Math.floor(context.raw);
+              const minutes = Math.round((context.raw - hours) * 60);
+              return `${hours}h ${minutes}m`;
+            }
+          }
         }
       }
     }}
   />
 }
 
-export default DoughnutChartStudent
+export default DoughnutChartStudent;

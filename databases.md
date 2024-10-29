@@ -12,7 +12,7 @@
    - [Shift Management](#shift-management)
    - [Assignments and Requests](#assignments-and-requests)
    - [Attendance Management](#attendance-management)
-   - [Feedback and Earnings](#feedback-and-earnings)
+   - [Feedback and Ratings](#feedback-and-ratings)
 
 ## System Overview
 
@@ -35,7 +35,6 @@ graph TD
     D -->|Clock In| E[Attendance]
     E -->|Verified by| F[Gateman]
     E -->|Marked by| G[Shift Leader]
-    E -->|Generates| H[Earnings]
 ```
 
 ## Database Collections
@@ -119,21 +118,6 @@ table: projects
 - createdAt (datetime) [Required]
 - updatedAt (datetime) [Required]
 
-APPWRITE_PROJECT_RATES_COLLECTION_ID: PROJECT_RATES_COLLECTION_ID,
-table: projectRates
-- rateId (string, 36) [Primary Key, Required]
-- projectId (string, 36) [Foreign Key -> projects.projectId, Required]
-- weekdayDayRate (double) [Required]
-- weekdayNightRate (double) [Required]
-- saturdayDayRate (double) [Required]
-- saturdayNightRate (double) [Required]
-- sundayDayRate (double) [Required]
-- sundayNightRate (double) [Required]
-- effectiveFrom (datetime) [Required]
-- effectiveUntil (datetime, nullable)
-- createdBy (string, 36) [Foreign Key -> admins.userId, Required]
-- createdAt (datetime) [Required]
-- updatedAt (datetime) [Required]
 
 APPWRITE_PROJECT_MEMBERS_COLLECTION_ID: PROJECT_MEMBERS_COLLECTION_ID,
 table: projectMembers
@@ -180,7 +164,7 @@ table: shiftAssignments
 - assignedBy (string, 36) [Required]
 - assignedByRole (string[enum: 'admin', 'client']) [Required]
 - assignedAt (datetime) [Required]
-- confirmedAt (datetime, nullable)
+- confirmedAt (datetime) [nullable]
 - createdAt (datetime) [Required]
 - updatedAt (datetime) [Required]
 
@@ -229,20 +213,3 @@ table: feedback
 - comments (string) [nullable]
 - submittedBy (string, 36) [Foreign Key -> shiftLeaders.userId, Required]
 - createdAt (datetime) [Required]
-
-APPWRITE_EARNINGS_COLLECTION_ID: EARNINGS_COLLECTION_ID,
-table: earnings
-- earningId (string, 36) [Primary Key, Required]
-- studentId (string, 36) [Foreign Key -> students.userId, Required]
-- shiftId (string, 36) [Foreign Key -> shifts.shiftId, Required]
-- attendanceId (string, 36) [Foreign Key -> attendance.attendanceId, Required]
-- appliedRate (double) [Required]
-- rateType (string[enum: 'weekdayDay', 'weekdayNight', 'saturdayDay', 'saturdayNight', 'sundayDay', 'sundayNight']) [Required]
-- trackedHours (double) [Required]
-- lostHours (double) [Required]
-- totalAmount (double) [Required]
-- status (string[enum: 'calculated', 'verified', 'paid']) [Required]
-- calculatedBy (string, 36) [Foreign Key -> admins.userId, Required]
-- verifiedBy (string, 36) [Foreign Key -> admins.userId, nullable]
-- createdAt (datetime) [Required]
-- updatedAt (datetime) [Required]

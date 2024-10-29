@@ -2,18 +2,24 @@
 
 import CountUp from 'react-countup';
 
-const AnimatedCounterStudent = ({ amount }: { amount: number }) => {
+const AnimatedCounterStudent = ({ hours }: { hours: number }) => {
+  const wholeHours = Math.floor(hours);
+  const minutes = Math.round((hours - wholeHours) * 60);
+
   return (
-    <div className="w-full">
+    <div className="w-full flex gap-1">
       <CountUp 
-        decimals={0}
-        decimal=","
+        end={wholeHours} 
         separator=" "
-        suffix=" Ft"
-        end={amount} 
+        suffix="h"
+      />
+      <CountUp 
+        end={minutes} 
+        separator=" "
+        suffix="m"
       />
     </div>
-  )
+  );
 }
 
-export default AnimatedCounterStudent
+export default AnimatedCounterStudent;
