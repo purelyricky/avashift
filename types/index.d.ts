@@ -470,16 +470,18 @@ declare interface AnimatedCounterStudentProps {
 //========================================
 
 // types.d.ts updates
-declare type ProjectTimeStats = {
+interface ProjectTimeStats {
   projectId: string;
   projectName: string;
   trackedHours: number;
-  color?: string;
+  lostHours: number;
+  color: string;
 }
 
-declare type StudentProjectStats = {
+interface StudentProjectStats {
   totalProjects: number;
   activeProjects: number;
   projectHours: ProjectTimeStats[];
   totalMonthlyHours: number;
+  totalLostHours: number;
 }

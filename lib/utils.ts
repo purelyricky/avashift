@@ -140,3 +140,12 @@ export const authFormSchema = (type: string) => z.object({
   email: z.string().email('Please enter a valid email'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
+
+export const getEmptyStats = () => {
+  return {
+    totalProjects: 0,
+    activeProjects: 0,
+    projectHours: [],
+    totalMonthlyHours: 0
+  };
+};

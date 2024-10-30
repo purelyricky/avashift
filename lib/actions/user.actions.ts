@@ -264,6 +264,43 @@ export const logoutAccount = async () => {
 // Calculation Actions
 // ========================================
 
+function calculateHours(
+  scheduledStart: Date,
+  scheduledEnd: Date,
+  actualStart: Date,
+  actualEnd: Date
+): { trackedHours: number; lostHours: number } {
+  // Convert all times to minutes since epoch to properly handle dates
+  const toMinutes = (date: Date) => date.getTime() / (1000 * 60);
+  
+  const schedStart = toMinutes(scheduledStart);
+  const schedEnd = toMinutes(scheduledEnd);
+  const actStart = toMinutes(actualStart);
+  const actEnd = toMinutes(actualEnd);
+
+  // Calculate tracked hours
+  const trackedStart = Math.max(schedStart, actStart);
+  const trackedEnd = Math.min(schedEnd, actEnd);
+  const trackedHours = Math.max(0, (trackedEnd - trackedStart) / 60);
+
+  // Calculate lost hours
+  const lostStart = Math.max(0, (actStart - schedStart) / 60);
+  const lostEnd = Math.max(0, (schedEnd - actEnd) / 60);
+  const lostHours = lostStart + lostEnd;
+
+  // Debugging statements
+  console.log({
+    scheduledStart: scheduledStart.toISOString(),
+    scheduledEnd: scheduledEnd.toISOString(),
+    actualStart: actualStart.toISOString(),
+    actualEnd: actualEnd.toISOString(),
+    trackedHours,
+    lostHours
+  });
+
+  return { trackedHours, lostHours };
+}
+
 export async function getStudentProjectStats(userId: string): Promise<StudentProjectStats> {
   const { database } = await createAdminClient();
   
@@ -272,118 +309,139 @@ export async function getStudentProjectStats(userId: string): Promise<StudentPro
   const firstDayOfMonth = new Date(Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), 1));
 
   try {
-    // 1. First get ALL project memberships for the student, regardless of activity
+    // 1. Get ALL project memberships for the student
     const projectMembers = await database.listDocuments(
       process.env.APPWRITE_DATABASE_ID!,
       process.env.APPWRITE_PROJECT_MEMBERS_COLLECTION_ID!,
-      [
-        Query.equal('userId', [userId]),
-        Query.equal('userRole', ['student']),
-        Query.equal('status', ['active']) // Only active memberships
-      ]
+      [Query.equal('userId', [userId])]
     );
 
-    // Early return if student has no project memberships at all
     if (projectMembers.documents.length === 0) {
-      return parseStringify({
+      return {
         totalProjects: 0,
         activeProjects: 0,
         projectHours: [],
-        totalMonthlyHours: 0
-      });
+        totalMonthlyHours: 0,
+        totalLostHours: 0
+      };
     }
 
-    // 2. Get ALL projects the student is a member of
-    const projectIds = Array.from(
-      new Set(
-        projectMembers.documents
-          .map(pm => pm.projectId)
-          .filter(id => id !== undefined)
-      )
-    );
-    
+    // 2. Get ALL projects
+    const projectIds = Array.from(new Set(projectMembers.documents.map(pm => pm.projectId)));
     const projects = await database.listDocuments(
       process.env.APPWRITE_DATABASE_ID!,
       process.env.APPWRITE_PROJECTS_COLLECTION_ID!,
       [Query.equal('projectId', projectIds)]
     );
 
-    // 3. Get attendance records for current month
+    // Filter active projects
+    const activeProjects = projects.documents.filter(project => 
+      project.status === 'active' && 
+      projectMembers.documents.some(pm => pm.projectId === project.projectId && pm.status === 'active')
+    );
+
+    // 3. Get all shifts for these projects in the current month
+    const shifts = await database.listDocuments(
+      process.env.APPWRITE_DATABASE_ID!,
+      process.env.APPWRITE_SHIFTS_COLLECTION_ID!,
+      [
+        Query.equal('projectId', projectIds),
+        Query.greaterThanEqual('date', [firstDayOfMonth.toISOString()]),
+        Query.lessThanEqual('date', [currentDate.toISOString()])
+      ]
+    );
+
+    // 4. Get completed assignments
+    const shiftIds = shifts.documents.map(s => s.shiftId);
+    const shiftAssignments = await database.listDocuments(
+      process.env.APPWRITE_DATABASE_ID!,
+      process.env.APPWRITE_SHIFT_ASSIGNMENTS_COLLECTION_ID!,
+      [
+        Query.equal('studentId', [userId]),
+        Query.equal('shiftId', shiftIds),
+        Query.equal('status', ['completed'])
+      ]
+    );
+
+    // 5. Get attendance records
+    const assignmentShiftIds = shiftAssignments.documents.map(sa => sa.shiftId);
     const attendance = await database.listDocuments(
       process.env.APPWRITE_DATABASE_ID!,
       process.env.APPWRITE_ATTENDANCE_COLLECTION_ID!,
       [
         Query.equal('studentId', [userId]),
-        Query.greaterThanEqual('scheduledStartTime', [firstDayOfMonth.toISOString()]),
-        Query.lessThanEqual('scheduledStartTime', [currentDate.toISOString()]),
-        Query.equal('verificationStatus', ['verified']),
+        Query.equal('shiftId', assignmentShiftIds),
         Query.equal('attendanceStatus', ['present'])
       ]
     );
 
-    // 4. Get shifts data for attendance records
-    const shiftIds = attendance.documents.map(a => a.shiftId).filter(id => id !== undefined);
-    let shifts: Shift[] = [];
-    
-    if (shiftIds.length > 0) {
-      const shiftsResponse = await database.listDocuments(
-        process.env.APPWRITE_DATABASE_ID!,
-        process.env.APPWRITE_SHIFTS_COLLECTION_ID!,
-        [Query.equal('shiftId', shiftIds)]
-      );
-      shifts = shiftsResponse.documents as unknown as Shift[];
+    // Calculate project hours
+    const projectHours: ProjectTimeStats[] = [];
+    const colors = ['#0747b6', '#2265d8', '#2f91fa'];
+
+    for (const project of projects.documents) {
+      const projectShifts = shifts.documents.filter(s => s.projectId === project.projectId);
+      let totalTrackedHours = 0;
+      let totalLostHours = 0;
+
+      for (const shift of projectShifts) {
+        const attendanceRecord = attendance.documents.find(a => a.shiftId === shift.shiftId);
+        
+        if (attendanceRecord?.clockInTime && attendanceRecord?.clockOutTime) {
+          try {
+            // Ensure all dates are properly parsed
+            const { trackedHours, lostHours } = calculateHours(
+              new Date(shift.startTime),
+              new Date(shift.stopTime),
+              new Date(attendanceRecord.clockInTime),
+              new Date(attendanceRecord.clockOutTime)
+            );
+
+            console.log(`Shift ${shift.shiftId} calculations:`, {
+              trackedHours,
+              lostHours,
+              shift: shift.startTime,
+              attendance: attendanceRecord.clockInTime
+            });
+
+            totalTrackedHours += trackedHours;
+            totalLostHours += lostHours;
+          } catch (error) {
+            console.error(`Error calculating hours for shift ${shift.shiftId}:`, error);
+          }
+        }
+      }
+
+      if (totalTrackedHours > 0 || totalLostHours > 0) {
+        projectHours.push({
+          projectId: project.projectId,
+          projectName: project.name,
+          trackedHours: Math.round(totalTrackedHours * 100) / 100,
+          lostHours: Math.round(totalLostHours * 100) / 100,
+          color: colors[projectHours.length % colors.length]
+        });
+      }
     }
 
-    // 5. Calculate hours for ALL projects (including those with zero hours)
-    const projectHours: ProjectTimeStats[] = projects.documents.map((project, index) => {
-      try {
-        const projectAttendance = attendance.documents.filter(record => {
-          const relatedShift = shifts.find(s => s.shiftId === record.shiftId);
-          return relatedShift && relatedShift.projectId === project.projectId;
-        });
-
-        const totalHours = projectAttendance.reduce((sum, record) => {
-          // Ensure we're using the tracked hours from attendance record
-          return sum + (Number(record.trackedHours) || 0);
-        }, 0);
-
-        return {
-          projectId: project.projectId,
-          projectName: project.name,
-          trackedHours: Math.round(totalHours * 100) / 100,
-          color: [`#0747b6`, `#2265d8`, `#2f91fa`][index % 3]
-        };
-      } catch (error) {
-        console.error(`Error calculating hours for project ${project.projectId}:`, error);
-        return {
-          projectId: project.projectId,
-          projectName: project.name,
-          trackedHours: 0,
-          color: [`#0747b6`, `#2265d8`, `#2f91fa`][index % 3]
-        };
-      }
-    });
-
-    // 6. Calculate total monthly hours from all projects with tracked time
     const totalMonthlyHours = projectHours.reduce((sum, p) => sum + p.trackedHours, 0);
+    const totalLostHours = projectHours.reduce((sum, p) => sum + p.lostHours, 0);
 
-    // 7. Return complete stats
-    return parseStringify({
-      // Include ALL projects in counts, regardless of hours
+    return {
       totalProjects: projects.documents.length,
-      activeProjects: projects.documents.filter(p => p.status === 'active').length,
-      // Only include projects with tracked hours in the projectHours array
-      projectHours: projectHours.filter(p => p.trackedHours > 0),
-      totalMonthlyHours: Math.round(totalMonthlyHours * 100) / 100
-    });
+      activeProjects: activeProjects.length,
+      projectHours,
+      totalMonthlyHours: Math.round(totalMonthlyHours * 100) / 100,
+      totalLostHours: Math.round(totalLostHours * 100) / 100
+    };
 
   } catch (error) {
     console.error('Error calculating student project stats:', error);
-    return parseStringify({
+    return {
       totalProjects: 0,
       activeProjects: 0,
       projectHours: [],
-      totalMonthlyHours: 0
-    });
+      totalMonthlyHours: 0,
+      totalLostHours: 0
+    };
   }
 }

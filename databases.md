@@ -100,9 +100,8 @@ APPWRITE_USER_AVAILABILITY_COLLECTION_ID: USER_AVAILABILITY_COLLECTION_ID,
 table: userAvailability
 - availabilityId (string, 36) [Primary Key, Required]
 - userId (string, 36) [Required]
-- userRole (string[enum: 'admin', 'client', 'student', 'shiftLeader', 'gateman']) [Required]
 - dayOfWeek (string[enum: 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) [Required]
-- shiftType (string[enum: 'day', 'night']) [Required]
+- timeType (string[enum: 'day', 'night']) [Required]
 - status (string[enum: 'active', 'inactive']) [Required]
 - createdAt (datetime) [Required]
 
@@ -114,7 +113,6 @@ table: projects
 - description (string, 1000) [nullable]
 - status (string[enum: 'active', 'completed', 'suspended']) [Required]
 - ownerId (string, 36) [Required]  // ID of admin or client who owns the project
-- ownerRole (string[enum: 'admin', 'client']) [Required]
 - createdAt (datetime) [Required]
 - updatedAt (datetime) [Required]
 
@@ -124,10 +122,8 @@ table: projectMembers
 - memberId (string, 36) [Primary Key, Required]
 - projectId (string, 36) [Foreign Key -> projects.projectId, Required]
 - userId (string, 36) [Required]
-- userRole (string[enum: 'admin', 'client', 'student', 'shiftLeader', 'gateman']) [Required]
 - membershipType (string[enum: 'owner', 'student', 'shiftLeader', 'client', 'manager', 'member', 'observer']) [Required]
 - addedBy (string, 36) [Required]
-- addedByRole (string[enum: 'admin', 'client']) [Required]
 - status (string[enum: 'active', 'inactive']) [Required]
 - createdAt (datetime) [Required]
 - updatedAt (datetime) [Required]
@@ -149,7 +145,6 @@ table: shifts
 - shiftType (string[enum: 'normal', 'filler']) [Required]
 - status (string[enum: 'draft', 'published', 'inProgress', 'completed', 'cancelled']) [Required]
 - createdBy (string, 36) [Required]
-- createdByRole (string[enum: 'admin', 'client']) [Required]
 - createdAt (datetime) [Required]
 - updatedAt (datetime) [Required]
 
@@ -162,7 +157,6 @@ table: shiftAssignments
 - projectMemberId (string, 36) [Foreign Key -> projectMembers.memberId, Required]
 - status (string[enum: 'pending', 'assigned', 'confirmed', 'completed', 'cancelled']) [Required]
 - assignedBy (string, 36) [Required]
-- assignedByRole (string[enum: 'admin', 'client']) [Required]
 - assignedAt (datetime) [Required]
 - confirmedAt (datetime) [nullable]
 - createdAt (datetime) [Required]
@@ -173,7 +167,6 @@ table: adminRequests
 - requestId (string, 36) [Primary Key, Required]
 - requestType (string[enum: 'shiftCancellation', 'fillerShiftApplication', 'availabilityChange']) [Required]
 - requesterId (string, 36) [Required]
-- requesterRole (string[enum: 'admin', 'client', 'student', 'shiftLeader', 'gateman']) [Required]
 - shiftId (string, 36) [Foreign Key -> shifts.shiftId, nullable]
 - assignmentId (string, 36) [Foreign Key -> shiftAssignments.assignmentId, nullable]
 - reason (string) [nullable]
@@ -188,13 +181,8 @@ table: attendance
 - shiftId (string, 36) [Foreign Key -> shifts.shiftId, Required]
 - studentId (string, 36) [Foreign Key -> students.userId, Required]
 - qrCode (string, 255) [Required]
-- scheduledStartTime (datetime) [Required]
-- scheduledEndTime (datetime) [Required]
 - clockInTime (datetime, nullable)
 - clockOutTime (datetime, nullable)
-- trackedHours (double, nullable)
-- lostHours (double, nullable)
-- verificationStatus (string[enum: 'pending', 'verified', 'rejected']) [Required]
 - attendanceStatus (string[enum: 'pending', 'present', 'absent', 'late']) [Required]
 - clockInVerifiedBy (string, 36) [Foreign Key -> gatemen.userId, nullable]
 - markedByLeader (string, 36) [Foreign Key -> shiftLeaders.userId, nullable]
