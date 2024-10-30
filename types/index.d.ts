@@ -501,3 +501,58 @@ interface ProjectTimeStats {
   lostHours: number;
   color: string;
 }
+
+//==========================================================
+//QUICK ACTIONS PROPS INTERFACES
+//==========================================================
+
+// Availability Types
+declare type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+declare type TimeOfDay = 'day' | 'night';
+declare type AvailabilityStatus = 'active' | 'inactive';
+
+declare type UserAvailability = {
+  availabilityId: string;
+  userId: string;
+  dayOfWeek: DayOfWeek;
+  timeType: TimeOfDay;
+  status: AvailabilityStatus;
+  createdAt: string;
+}
+
+// Request Types
+declare type AdminRequestType = 'shiftCancellation' | 'fillerShiftApplication' | 'availabilityChange';
+declare type AdminRequestStatus = 'pending' | 'approved' | 'rejected';
+
+declare type AdminRequest = {
+  requestId: string;
+  requestType: AdminRequestType;
+  requesterId: string;
+  shiftId?: string;
+  assignmentId?: string;
+  reason?: string;
+  status: AdminRequestStatus;
+  reviewedBy?: string;
+  createdAt: string;
+}
+
+// Component Props Types
+declare interface QuickActionsProps {
+  user: StudentUser;
+  onAvailabilityUpdate: (availabilities: UserAvailability[]) => Promise<void>;
+  onTimeOffRequest: (request: AdminRequest) => Promise<void>;
+}
+
+declare interface AvailabilityDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentAvailabilities: UserAvailability[];
+  onUpdate: (availabilities: UserAvailability[]) => void;
+}
+
+declare interface TimeOffDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentStatus: AvailabilityStatus;
+  onSubmit: (request: Omit<AdminRequest, 'requestId' | 'status' | 'reviewedBy' | 'createdAt'>) => void;
+}

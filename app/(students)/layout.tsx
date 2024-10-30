@@ -3,6 +3,7 @@ import SidebarStudent from "@/components/SidebarStudent";
 import { getLoggedInUser } from "@/lib/actions/user.actions";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { Toaster } from "@/components/ui/toaster";
 
 export default async function StudentLayout({
   children,

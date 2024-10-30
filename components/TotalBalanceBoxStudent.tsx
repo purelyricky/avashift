@@ -2,6 +2,8 @@ import AnimatedCounterStudent from './AnimatedCounterStudent';
 import DoughnutChartStudent from './DoughnutChartStudent';
 import PunctualityChart from './PunctualityChart';
 import PunctualityCounter from './PunctualityCounter';
+import { ShiftStatCard } from './StatCard';
+import {QuickActions} from '@/components/quick-actions';
 
 const TotalBalanceBoxStudent = ({ projectStats }: { projectStats: EnhancedStudentProjectStats }) => {
   return (
@@ -49,6 +51,21 @@ const TotalBalanceBoxStudent = ({ projectStats }: { projectStats: EnhancedStuden
           </div>
         </section>
       </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
+        <ShiftStatCard
+          type="completed"
+          count={projectStats.completedShiftsCount}
+          label="Completed Shifts"
+        />
+        <ShiftStatCard
+          type="upcoming"
+          count={projectStats.upcomingShiftsCount}
+          label="Upcoming Shifts"
+        />
+      </div>
+
+      <QuickActions />
+      
     </section>
   );
 };
