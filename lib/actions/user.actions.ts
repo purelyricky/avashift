@@ -4,6 +4,7 @@ import { ID, Query } from "node-appwrite";
 import { createAdminClient, createSessionClient } from "@/lib/actions/appwrite";
 import { cookies } from "next/headers";
 import { parseStringify } from "../utils";
+import calculateHours from "../calculate";
 
 const getCollectionIdForRole = (role: UserRole) => {
   switch (role) {
@@ -264,52 +265,23 @@ export const logoutAccount = async () => {
 // Calculation Actions
 // ========================================
 
-function calculateHours(
-  scheduledStart: Date,
-  scheduledEnd: Date,
-  actualStart: Date,
-  actualEnd: Date
-): { trackedHours: number; lostHours: number } {
-  // Convert all times to minutes since epoch to properly handle dates
-  const toMinutes = (date: Date) => date.getTime() / (1000 * 60);
-  
-  const schedStart = toMinutes(scheduledStart);
-  const schedEnd = toMinutes(scheduledEnd);
-  const actStart = toMinutes(actualStart);
-  const actEnd = toMinutes(actualEnd);
-
-  // Calculate tracked hours
-  const trackedStart = Math.max(schedStart, actStart);
-  const trackedEnd = Math.min(schedEnd, actEnd);
-  const trackedHours = Math.max(0, (trackedEnd - trackedStart) / 60);
-
-  // Calculate lost hours
-  const lostStart = Math.max(0, (actStart - schedStart) / 60);
-  const lostEnd = Math.max(0, (schedEnd - actEnd) / 60);
-  const lostHours = lostStart + lostEnd;
-
-  // Debugging statements
-  console.log({
-    scheduledStart: scheduledStart.toISOString(),
-    scheduledEnd: scheduledEnd.toISOString(),
-    actualStart: actualStart.toISOString(),
-    actualEnd: actualEnd.toISOString(),
-    trackedHours,
-    lostHours
-  });
-
-  return { trackedHours, lostHours };
-}
-
-export async function getStudentProjectStats(userId: string): Promise<StudentProjectStats> {
+export async function getStudentProjectStats(userId: string): Promise<EnhancedStudentProjectStats> {
   const { database } = await createAdminClient();
   
-  // Use UTC dates to ensure consistent timezone handling
   const currentDate = new Date();
   const firstDayOfMonth = new Date(Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), 1));
 
   try {
-    // 1. Get ALL project memberships for the student
+    // Get student info for punctuality score
+    const studentInfo = await database.listDocuments(
+      process.env.APPWRITE_DATABASE_ID!,
+      process.env.APPWRITE_STUDENTS_COLLECTION_ID!,
+      [Query.equal('userId', [userId])]
+    );
+
+    const punctualityScore = studentInfo.documents[0]?.punctualityScore || 100.0;
+
+    // Get ALL project memberships regardless of status
     const projectMembers = await database.listDocuments(
       process.env.APPWRITE_DATABASE_ID!,
       process.env.APPWRITE_PROJECT_MEMBERS_COLLECTION_ID!,
@@ -322,11 +294,14 @@ export async function getStudentProjectStats(userId: string): Promise<StudentPro
         activeProjects: 0,
         projectHours: [],
         totalMonthlyHours: 0,
-        totalLostHours: 0
+        totalLostHours: 0,
+        completedShiftsCount: 0,
+        upcomingShiftsCount: 0,
+        punctualityScore
       };
     }
 
-    // 2. Get ALL projects
+    // Get ALL projects without filtering
     const projectIds = Array.from(new Set(projectMembers.documents.map(pm => pm.projectId)));
     const projects = await database.listDocuments(
       process.env.APPWRITE_DATABASE_ID!,
@@ -334,93 +309,97 @@ export async function getStudentProjectStats(userId: string): Promise<StudentPro
       [Query.equal('projectId', projectIds)]
     );
 
-    // Filter active projects
+    // Get only currently active projects count
     const activeProjects = projects.documents.filter(project => 
       project.status === 'active' && 
-      projectMembers.documents.some(pm => pm.projectId === project.projectId && pm.status === 'active')
-    );
+      projectMembers.documents.some(pm => 
+        pm.projectId === project.projectId && 
+        pm.status === 'active'
+      )
+    ).length;
 
-    // 3. Get all shifts for these projects in the current month
+    // Get ALL shifts for these projects
     const shifts = await database.listDocuments(
       process.env.APPWRITE_DATABASE_ID!,
       process.env.APPWRITE_SHIFTS_COLLECTION_ID!,
-      [
-        Query.equal('projectId', projectIds),
-        Query.greaterThanEqual('date', [firstDayOfMonth.toISOString()]),
-        Query.lessThanEqual('date', [currentDate.toISOString()])
-      ]
+      [Query.equal('projectId', projectIds)]
     );
 
-    // 4. Get completed assignments
-    const shiftIds = shifts.documents.map(s => s.shiftId);
+    // Get ALL assignments
     const shiftAssignments = await database.listDocuments(
       process.env.APPWRITE_DATABASE_ID!,
       process.env.APPWRITE_SHIFT_ASSIGNMENTS_COLLECTION_ID!,
-      [
-        Query.equal('studentId', [userId]),
-        Query.equal('shiftId', shiftIds),
-        Query.equal('status', ['completed'])
-      ]
+      [Query.equal('studentId', [userId])]
     );
 
-    // 5. Get attendance records
-    const assignmentShiftIds = shiftAssignments.documents.map(sa => sa.shiftId);
+    // Get attendance records
     const attendance = await database.listDocuments(
       process.env.APPWRITE_DATABASE_ID!,
       process.env.APPWRITE_ATTENDANCE_COLLECTION_ID!,
       [
         Query.equal('studentId', [userId]),
-        Query.equal('shiftId', assignmentShiftIds),
         Query.equal('attendanceStatus', ['present'])
       ]
     );
 
-    // Calculate project hours
-    const projectHours: ProjectTimeStats[] = [];
+    // Count completed shifts for current month
+    const completedShiftsCount = attendance.documents.filter(a => {
+      const clockInDate = new Date(a.clockInTime);
+      return clockInDate >= firstDayOfMonth && 
+             clockInDate <= currentDate && 
+             a.clockOutTime !== null;
+    }).length;
+
+    // Count upcoming shifts
+    const upcomingShifts = shifts.documents.filter(shift => {
+      const isAssigned = shiftAssignments.documents.some(
+        sa => sa.shiftId === shift.shiftId && 
+             sa.status === 'assigned'
+      );
+      const shiftDate = new Date(shift.startTime);
+      return isAssigned && shiftDate > currentDate;
+    });
+
+    // Calculate project hours including all projects
+    const projectHours: ProjectShiftStats[] = [];
     const colors = ['#0747b6', '#2265d8', '#2f91fa'];
 
     for (const project of projects.documents) {
       const projectShifts = shifts.documents.filter(s => s.projectId === project.projectId);
       let totalTrackedHours = 0;
       let totalLostHours = 0;
+      let shiftsCompleted = 0;
 
       for (const shift of projectShifts) {
         const attendanceRecord = attendance.documents.find(a => a.shiftId === shift.shiftId);
         
         if (attendanceRecord?.clockInTime && attendanceRecord?.clockOutTime) {
-          try {
-            // Ensure all dates are properly parsed
-            const { trackedHours, lostHours } = calculateHours(
-              new Date(shift.startTime),
-              new Date(shift.stopTime),
-              new Date(attendanceRecord.clockInTime),
-              new Date(attendanceRecord.clockOutTime)
-            );
-
-            console.log(`Shift ${shift.shiftId} calculations:`, {
-              trackedHours,
-              lostHours,
-              shift: shift.startTime,
-              attendance: attendanceRecord.clockInTime
-            });
-
-            totalTrackedHours += trackedHours;
-            totalLostHours += lostHours;
-          } catch (error) {
-            console.error(`Error calculating hours for shift ${shift.shiftId}:`, error);
-          }
+          shiftsCompleted++;
+          const { trackedHours, lostHours } = calculateHours(
+            new Date(shift.startTime),
+            new Date(shift.stopTime),
+            new Date(attendanceRecord.clockInTime),
+            new Date(attendanceRecord.clockOutTime)
+          );
+          totalTrackedHours += trackedHours;
+          totalLostHours += lostHours;
         }
       }
 
-      if (totalTrackedHours > 0 || totalLostHours > 0) {
-        projectHours.push({
-          projectId: project.projectId,
-          projectName: project.name,
-          trackedHours: Math.round(totalTrackedHours * 100) / 100,
-          lostHours: Math.round(totalLostHours * 100) / 100,
-          color: colors[projectHours.length % colors.length]
-        });
-      }
+      const membershipStatus = projectMembers.documents.find(
+        pm => pm.projectId === project.projectId
+      )?.status || 'inactive';
+
+      projectHours.push({
+        projectId: project.projectId,
+        projectName: project.name,
+        projectStatus: project.status,
+        membershipStatus,
+        trackedHours: Math.round(totalTrackedHours * 100) / 100,
+        lostHours: Math.round(totalLostHours * 100) / 100,
+        shiftsCompleted,
+        color: colors[projectHours.length % colors.length]
+      });
     }
 
     const totalMonthlyHours = projectHours.reduce((sum, p) => sum + p.trackedHours, 0);
@@ -428,10 +407,13 @@ export async function getStudentProjectStats(userId: string): Promise<StudentPro
 
     return {
       totalProjects: projects.documents.length,
-      activeProjects: activeProjects.length,
+      activeProjects,
       projectHours,
       totalMonthlyHours: Math.round(totalMonthlyHours * 100) / 100,
-      totalLostHours: Math.round(totalLostHours * 100) / 100
+      totalLostHours: Math.round(totalLostHours * 100) / 100,
+      completedShiftsCount,
+      upcomingShiftsCount: upcomingShifts.length,
+      punctualityScore
     };
 
   } catch (error) {
@@ -441,7 +423,10 @@ export async function getStudentProjectStats(userId: string): Promise<StudentPro
       activeProjects: 0,
       projectHours: [],
       totalMonthlyHours: 0,
-      totalLostHours: 0
+      totalLostHours: 0,
+      completedShiftsCount: 0,
+      upcomingShiftsCount: 0,
+      punctualityScore: 100.0
     };
   }
 }

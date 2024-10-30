@@ -470,18 +470,34 @@ declare interface AnimatedCounterStudentProps {
 //========================================
 
 // types.d.ts updates
-interface ProjectTimeStats {
+interface EnhancedStudentProjectStats extends StudentProjectStats {
+  completedShiftsCount: number;
+  upcomingShiftsCount: number;
+  punctualityScore: number;
+}
+
+interface ProjectShiftStats {
   projectId: string;
   projectName: string;
+  projectStatus: 'active' | 'completed' | 'suspended';
+  membershipStatus: 'active' | 'inactive';
   trackedHours: number;
   lostHours: number;
+  shiftsCompleted: number;
   color: string;
 }
 
 interface StudentProjectStats {
   totalProjects: number;
   activeProjects: number;
-  projectHours: ProjectTimeStats[];
+  projectHours: ProjectShiftStats[];
   totalMonthlyHours: number;
   totalLostHours: number;
+}
+interface ProjectTimeStats {
+  projectId: string;
+  projectName: string;
+  trackedHours: number;
+  lostHours: number;
+  color: string;
 }
