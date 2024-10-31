@@ -3,8 +3,7 @@ import React from 'react'
 function page() {
   return (
     <div>
-        <h1>Calendar</h1>
-      
+        <h1>Welcome to this awesome page</h1>
     </div>
   )
 }
