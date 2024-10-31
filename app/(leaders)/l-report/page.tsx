@@ -3,7 +3,7 @@ import TotalBalanceBoxLeader from '@/components/TotalBalanceBoxLeader';
 import { getLoggedInUser } from '@/lib/actions/user.actions';
 import { redirect } from 'next/navigation';
 
-const LeaderDashboard = async () => {
+const LeaderDashboard1 = async () => {
   const response = await getLoggedInUser();
   
   // Handle authentication and authorization
@@ -41,4 +41,4 @@ const LeaderDashboard = async () => {
   )
 }
 
-export default LeaderDashboard
+export default LeaderDashboard1

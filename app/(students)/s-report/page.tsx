@@ -4,7 +4,7 @@ import TotalBalanceBoxStudent from '@/components/TotalBalanceBoxStudent';
 import { getLoggedInUser, getStudentProjectStats } from '@/lib/actions/user.actions';
 import { redirect } from 'next/navigation';
 
-const StudentDashboard = async () => {
+const StudentDashboard1 = async () => {
   const response = await getLoggedInUser();
   
   if (!response || response.status === 'error' || !response.data) {
@@ -37,4 +37,4 @@ const StudentDashboard = async () => {
   )
 }
 
-export default StudentDashboard
+export default StudentDashboard1

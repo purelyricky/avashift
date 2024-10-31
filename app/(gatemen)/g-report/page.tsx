@@ -3,7 +3,7 @@ import TotalBalanceBoxGate from '@/components/TotalBalanceBoxGate';
 import { getLoggedInUser } from '@/lib/actions/user.actions';
 import { redirect } from 'next/navigation';
 
-const GatemanDashboard = async () => {
+const GatemanDashboard1 = async () => {
   const response = await getLoggedInUser();
   
   // Handle authentication and authorization
@@ -41,4 +41,4 @@ const GatemanDashboard = async () => {
   )
 }
 
-export default GatemanDashboard
+export default GatemanDashboard1
