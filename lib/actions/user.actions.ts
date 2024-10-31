@@ -430,3 +430,173 @@ export async function getStudentProjectStats(userId: string): Promise<EnhancedSt
     };
   }
 }
+
+
+//==========================================================
+// Quick Actions Functions
+//==========================================================
+
+// Add these server actions to user.action.ts
+
+// Helper function to check if 96 hours have passed since last submission
+async function checkLastSubmissionTime(userId: string, database: any): Promise<boolean> {
+  try {
+    const lastAvailability = await database.listDocuments(
+      process.env.APPWRITE_DATABASE_ID!,
+      process.env.APPWRITE_USER_AVAILABILITY_COLLECTION_ID!,
+      [
+        Query.equal('userId', [userId]),
+        Query.orderDesc('createdAt'),
+        Query.limit(1)
+      ]
+    );
+
+    if (lastAvailability.documents.length === 0) return true;
+
+    const lastSubmission = new Date(lastAvailability.documents[0].createdAt);
+    const now = new Date();
+    const hoursDiff = (now.getTime() - lastSubmission.getTime()) / (1000 * 60 * 60);
+
+    return hoursDiff >= 96;
+  } catch (error) {
+    console.error('Error checking last submission time:', error);
+    return false;
+  }
+}
+
+export async function updateUserAvailability(
+  userId: string,
+  availabilities: Array<{ dayOfWeek: DayOfWeek; timeType: TimeOfDay }>
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const { database } = await createAdminClient();
+
+    // Check 96-hour rule
+    const canSubmit = await checkLastSubmissionTime(userId, database);
+    if (!canSubmit) {
+      return {
+        success: false,
+        message: 'Please wait 96 hours between availability updates.'
+      };
+    }
+
+    // Delete existing availability entries
+    const existingAvailabilities = await database.listDocuments(
+      process.env.APPWRITE_DATABASE_ID!,
+      process.env.APPWRITE_USER_AVAILABILITY_COLLECTION_ID!,
+      [Query.equal('userId', [userId])]
+    );
+
+    for (const doc of existingAvailabilities.documents) {
+      await database.deleteDocument(
+        process.env.APPWRITE_DATABASE_ID!,
+        process.env.APPWRITE_USER_AVAILABILITY_COLLECTION_ID!,
+        doc.$id
+      );
+    }
+
+    // Create new availability entries
+    for (const availability of availabilities) {
+      await database.createDocument(
+        process.env.APPWRITE_DATABASE_ID!,
+        process.env.APPWRITE_USER_AVAILABILITY_COLLECTION_ID!,
+        ID.unique(),
+        {
+          userId,
+          dayOfWeek: availability.dayOfWeek,
+          timeType: availability.timeType,
+          status: 'active',
+          createdAt: new Date().toISOString()
+        }
+      );
+    }
+
+    return { success: true, message: 'Availability updated successfully.' };
+  } catch (error) {
+    console.error('Error updating availability:', error);
+    return { success: false, message: 'Failed to update availability.' };
+  }
+}
+
+export async function submitTimeOffRequest(
+  userId: string,
+  currentStatus: AvailabilityStatus
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const { database } = await createAdminClient();
+
+    // Check for existing pending requests
+    const existingRequests = await database.listDocuments(
+      process.env.APPWRITE_DATABASE_ID!,
+      process.env.APPWRITE_ADMIN_REQUESTS_COLLECTION_ID!,
+      [
+        Query.equal('requesterId', [userId]),
+        Query.equal('requestType', ['availabilityChange']),
+        Query.equal('status', ['pending'])
+      ]
+    );
+
+    if (existingRequests.documents.length > 0) {
+      return {
+        success: false,
+        message: 'You already have a pending availability change request.'
+      };
+    }
+
+    // Create new request
+    await database.createDocument(
+      process.env.APPWRITE_DATABASE_ID!,
+      process.env.APPWRITE_ADMIN_REQUESTS_COLLECTION_ID!,
+      ID.unique(),
+      {
+        requestType: 'availabilityChange',
+        requesterId: userId,
+        reason: currentStatus === 'active' ? 'Request for time off' : 'Request to activate account',
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      }
+    );
+
+    return {
+      success: true,
+      message: currentStatus === 'active' 
+        ? 'Time off request submitted successfully.' 
+        : 'Account activation request submitted successfully.'
+    };
+  } catch (error) {
+    console.error('Error submitting time off request:', error);
+    return { success: false, message: 'Failed to submit request.' };
+  }
+}
+
+export async function getUserAvailability(
+  userId: string
+): Promise<{ success: boolean; data: UserAvailability[] | null; message?: string }> {
+  try {
+    const { database } = await createAdminClient();
+
+    const availabilities = await database.listDocuments(
+      process.env.APPWRITE_DATABASE_ID!,
+      process.env.APPWRITE_USER_AVAILABILITY_COLLECTION_ID!,
+      [Query.equal('userId', [userId])]
+    );
+
+    return {
+      success: true,
+      data: availabilities.documents.map(doc => ({
+        availabilityId: doc.$id,
+        userId: doc.userId,
+        dayOfWeek: doc.dayOfWeek,
+        timeType: doc.timeType,
+        status: doc.status,
+        createdAt: doc.createdAt
+      }))
+    };
+  } catch (error) {
+    console.error('Error fetching user availability:', error);
+    return { success: false, data: null, message: 'Failed to fetch availability.' };
+  }
+}
+// End of Quick Actions Functions
+//==========================================================
+
